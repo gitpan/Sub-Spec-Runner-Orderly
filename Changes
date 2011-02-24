@@ -1,0 +1,21 @@
+Revision history for Sub::Spec::Runner::Orderly
+
+0.04     2011-02-24
+
+         Rewrite into OO-style, rename from Sub::Spec::RunDeps ->
+         Sub::Spec::Runner::Orderly.
+
+
+0.03     2011-02-23
+
+         Add missing dep: Log::Any.
+
+
+0.02     2011-02-22
+
+         Add before_item & after_item argument.
+
+
+0.01     2011-02-22
+
+         First release.
