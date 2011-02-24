@@ -1,6 +1,6 @@
 package Sub::Spec::Runner::Orderly;
 BEGIN {
-  $Sub::Spec::Runner::Orderly::VERSION = '0.05';
+  $Sub::Spec::Runner::Orderly::VERSION = '0.06';
 }
 # ABSTRACT: Run a set of subs (with dependency ordering, order changing, etc)
 
@@ -11,6 +11,7 @@ use Log::Any '$log';
 
 use Moo;
 use Sub::Spec::Utils; # temp, for _parse_schema
+
 
 # {SUBNAME => {done=>BOOL, spec=>SPEC, fldepends=>FLATTENED_DEPENDS, ...}, ...}
 has _sub_data  => (is => 'rw', default=>sub{{}});
@@ -87,29 +88,35 @@ sub __normalize_subname {
 }
 
 
+sub get_spec {
+    my ($self, $subname) = @_;
+    my ($module, $sub) = $subname =~ /(.+)::(.+)/;
+    no strict 'refs';
+    my $ms = \%{"$module\::SPEC"};
+    $ms->{$sub};
+}
+
+
 sub add {
-    my ($self, $subname, $spec) = @_;
+    my ($self, $subname) = @_;
     $subname = __normalize_subname($subname);
     return if $self->_sub_data->{$subname};
     $log->tracef("-> add(%s)", $subname);
 
     # get the spec from modules
-    my ($module, $localname);
+    my ($module, $sub);
     $subname =~ /(.+)::(.+)/;
-    ($module, $localname) = ($1, $2);
+    ($module, $sub) = ($1, $2);
     if ($self->load_modules) {
         my $modulep = $module;
         $modulep =~ s!::!/!g; $modulep .= ".pm";
         die "Cannot load module $module: $@\n"
             unless eval { require $modulep };
     }
-    if (!$spec) {
-        no strict 'refs';
-        my $ms = \%{"$module\::SPEC"};
-        $spec = $ms->{$localname} if $ms;
-        die "Can't find spec in \$$module\::SPEC{$localname}\n"
-            unless $spec;
-    }
+
+    my $spec = $self->get_spec($subname);
+    die "Can't find spec in \$$module\::SPEC{$sub}\n"
+        unless $spec;
 
     my $fldeps = {};
     if ($spec->{depends}) { __flatten_depends($spec->{depends}, $fldeps) }
@@ -178,14 +185,21 @@ sub done_subs {
     [ grep {$self->_sub_data->{done}} @{$self->_sub_list} ];
 }
 
+sub _log_running_sub {
+    my ($self, $subname) = @_;
+    $log->infof("Running %s ...", $self->format_subname($subname));
+}
+
 
 sub run {
     my ($self, %opts) = @_;
     $log->tracef("<- ".__PACKAGE__."::run(%s)", \%opts);
 
     return [400, "No subroutines to run"] unless @{ $self->_sub_list };
-    return [412, "Cannot resolve dependencies, please check for circulars"]
-        unless $self->order_by_dependencies;
+    if ($opts{order_by_dependencies} // 1) {
+        return [412, "Cannot resolve dependencies, please check for circulars"]
+            unless $self->order_by_dependencies;
+    }
     return [412, "pre_run() didn't return true"] unless $self->pre_run;
 
     my $num_success_runs = 0;
@@ -209,7 +223,7 @@ sub run {
             next if $sd->{done};
 
             $some_not_done++;
-            $log->infof("Running %s ...", $self->format_subname($subname));
+            $self->_log_running_sub($subname);
 
             my $orig_i = $self->{_i};
             unless ($self->pre_sub($subname)) {
@@ -299,8 +313,8 @@ sub _run_sub {
     $log->tracef("-> _run_sub(%s)", $subname);
     my $res;
     eval {
-        my ($module, $localname) = $subname =~ /(.+)::(.+)/;
-        my $fref = \&{"$module\::$localname"};
+        my ($module, $sub) = $subname =~ /(.+)::(.+)/;
+        my $fref = \&{"$module\::$sub"};
         unless ($fref) {
             $res = [500, "No subroutine \&$subname defined"];
             last;
@@ -311,7 +325,6 @@ sub _run_sub {
         my %args;
         my $args = $self->args // {};
         for (keys %$args) {
-            $log->debugf("\$_=%s, spec->{args}=%s", $_, $sd->{spec}{args});
             $args{$_} = $args->{$_} if !$sd->{spec}{args} ||
                 $sd->{spec}{args}{$_};
         }
@@ -478,7 +491,7 @@ Sub::Spec::Runner::Orderly - Run a set of subs (with dependency ordering, order 
 
 =head1 VERSION
 
-version 0.05
+version 0.06
 
 =head1 SYNOPSIS
 
@@ -533,6 +546,8 @@ L<Log::Any::App>, etc to see more logging statements for debugging.
 
 This module uses L<Moo> for object system.
 
+=head1 ATTRIBUTES
+
 =head2 args => HASHREF
 
 Arguments to pass to each subroutine. Note that each argument will only be
@@ -573,36 +588,40 @@ Whether to load (require()) modules when required, default is yes.
 
 =head1 METHODS
 
-=head2 add($subname[, $spec])
+=head2 $runner->get_spec($subname) => SPEC
+
+Get spec for sub named $subname. Will be called by add(). Can be overriden to
+provide your own specs other than from %SPECS package variables.
+
+=head2 $runner->add($subname)
 
 Add subroutine to the set of subroutines to be run. Example:
 
  $runner->add('Foo::bar');
 
-Sub spec will be retrieved from $Foo::SPEC{bar}, except when $spec is specified.
-
 Will also automatically add all dependencies.
 
-=head2 order_by_dependencies
+=head2 $runner->order_by_dependencies()
 
 Reorder set of subroutines by dependencies. Normally need not be called manually
 since it will be caled by run() prior to running subroutines, but might be
 useful if you want to add more subroutines in the middle of a run and then
 reorder.
 
-=head2 todo_subs => ARRAYREF
+=head2 $runner->todo_subs() => ARRAYREF
 
 Return the current list of subroutine names not yet runned, in order. Previously
 run subroutines can belong to this list again if repeat()-ed.
 
-=head2 done_subs => ARRAYREF
+=head2 $runner->done_subs() => ARRAYREF
 
 Return the current list of subroutine names already run, in order. Never-run
 subroutines can belong to this list too if skip()-ed.
 
-=head2 run(%opts) => [STATUSCODE, ERRMSG, RESULT]
+=head2 $runner->run(%opts) => [STATUSCODE, ERRMSG, RESULT]
 
-Options: ignore_errors => BOOL (default false).
+Options: ignore_errors => BOOL (default false), order_by_dependencies => BOOL
+(default true).
 
 Run the set of subroutines previously added by add(). Will return status code
 400 if there are no subroutines to run.
@@ -641,34 +660,34 @@ which must return true or otherwise run() will immediately exit with 500 status.
 After that, run() will return the summary. It will return status 200 if there
 are at least one subroutine returning success, or 500 otherwise.
 
-=head2 format_subname($subname) => STR
+=head2 $runner->format_subname($subname) => STR
 
 Can be used to format info log message: "Running XXX ..." when about to run a
 subroutine inside run(). Default is "Running Package::bar ..." (just the
 subname)
 
-=head2 success_res($res) => BOOL
+=head2 $runner->success_res($res) => BOOL
 
 By default, all responses with 2xx and 3xx are assumed as a success. You can
 override this.
 
-=head2 pre_run() => BOOL
+=head2 $runner->pre_run() => BOOL
 
 See run() for more details. Can be overridden by subclass.
 
-=head2 pre_sub() => BOOL
+=head2 $runner->pre_sub() => BOOL
 
 See run() for more details. Can be overridden by subclass.
 
-=head2 post_sub() => BOOL
+=head2 $runner->post_sub() => BOOL
 
 See run() for more details. Can be overridden by subclass.
 
-=head2 post_run() => BOOL
+=head2 $runner->post_run() => BOOL
 
 See run() for more details. Can be overridden by subclass.
 
-=head2 done(SUBNAME[, VALUE]) => OLDVAL
+=head2 $runner->done(SUBNAME[, VALUE]) => OLDVAL
 
 If VALUE is set, set a subroutine to be done/not done. Otherwise will return the
 current done status of SUBNAME.
@@ -676,23 +695,23 @@ current done status of SUBNAME.
 SUBNAME can also be a regex, which means all subroutines matching the regex. The
 last SUBNAME's current done status will be returned.
 
-=head2 skip(SUBNAME)
+=head2 $runner->skip(SUBNAME)
 
 Alias for done(SUBNAME, 1).
 
-=head2 skip_all()
+=head2 $runner->skip_all()
 
 Alias for skip(qr/.*/, 1).
 
-=head2 repeat(SUBNAME)
+=head2 $runner->repeat(SUBNAME)
 
 Alias for done(SUBNAME, 0).
 
-=head2 repeat_all()
+=head2 $runner->repeat_all()
 
 Alias for repeat(qr/.*/, 1).
 
-=head2 branch_done(SUBNAME, VALUE)
+=head2 $runner->branch_done(SUBNAME, VALUE)
 
 Just like done(), except that will set SUBNAME *and all its dependants*.
 Example: if a depends on b and b depends on c, then doing branch_done(c, 1) will
@@ -700,12 +719,12 @@ also set a & b as done.
 
 SUBNAME must be a string and not regex.
 
-=head2 jump($subname)
+=head2 $runner->jump($subname)
 
 Jump to another subname. Can be called in pre_sub() or inside subroutine or
 post_sub().
 
-=head2 stash(NAME[, VALUE]) => OLDVAL
+=head2 $runner->stash(NAME[, VALUE]) => OLDVAL
 
 Get/set stash data. This is a generic place to share data between subroutines
 being run.

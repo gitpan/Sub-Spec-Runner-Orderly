@@ -3,7 +3,7 @@ NAME
     ordering, order changing, etc)
 
 VERSION
-    version 0.05
+    version 0.06
 
 SYNOPSIS
     In YourModule.pm:
@@ -57,6 +57,7 @@ DESCRIPTION
 
     This module uses Moo for object system.
 
+ATTRIBUTES
   args => HASHREF
     Arguments to pass to each subroutine. Note that each argument will only
     be passed if the 'args' clause in subroutine spec specifies that the sub
@@ -96,32 +97,35 @@ DESCRIPTION
     Whether to load (require()) modules when required, default is yes.
 
 METHODS
-  add($subname[, $spec])
+  $runner->get_spec($subname) => SPEC
+    Get spec for sub named $subname. Will be called by add(). Can be
+    overriden to provide your own specs other than from %SPECS package
+    variables.
+
+  $runner->add($subname)
     Add subroutine to the set of subroutines to be run. Example:
 
      $runner->add('Foo::bar');
 
-    Sub spec will be retrieved from $Foo::SPEC{bar}, except when $spec is
-    specified.
-
     Will also automatically add all dependencies.
 
-  order_by_dependencies
+  $runner->order_by_dependencies()
     Reorder set of subroutines by dependencies. Normally need not be called
     manually since it will be caled by run() prior to running subroutines,
     but might be useful if you want to add more subroutines in the middle of
     a run and then reorder.
 
-  todo_subs => ARRAYREF
+  $runner->todo_subs() => ARRAYREF
     Return the current list of subroutine names not yet runned, in order.
     Previously run subroutines can belong to this list again if repeat()-ed.
 
-  done_subs => ARRAYREF
+  $runner->done_subs() => ARRAYREF
     Return the current list of subroutine names already run, in order.
     Never-run subroutines can belong to this list too if skip()-ed.
 
-  run(%opts) => [STATUSCODE, ERRMSG, RESULT]
-    Options: ignore_errors => BOOL (default false).
+  $runner->run(%opts) => [STATUSCODE, ERRMSG, RESULT]
+    Options: ignore_errors => BOOL (default false), order_by_dependencies =>
+    BOOL (default true).
 
     Run the set of subroutines previously added by add(). Will return status
     code 400 if there are no subroutines to run.
@@ -163,58 +167,58 @@ METHODS
     After that, run() will return the summary. It will return status 200 if
     there are at least one subroutine returning success, or 500 otherwise.
 
-  format_subname($subname) => STR
+  $runner->format_subname($subname) => STR
     Can be used to format info log message: "Running XXX ..." when about to
     run a subroutine inside run(). Default is "Running Package::bar ..."
     (just the subname)
 
-  success_res($res) => BOOL
+  $runner->success_res($res) => BOOL
     By default, all responses with 2xx and 3xx are assumed as a success. You
     can override this.
 
-  pre_run() => BOOL
+  $runner->pre_run() => BOOL
     See run() for more details. Can be overridden by subclass.
 
-  pre_sub() => BOOL
+  $runner->pre_sub() => BOOL
     See run() for more details. Can be overridden by subclass.
 
-  post_sub() => BOOL
+  $runner->post_sub() => BOOL
     See run() for more details. Can be overridden by subclass.
 
-  post_run() => BOOL
+  $runner->post_run() => BOOL
     See run() for more details. Can be overridden by subclass.
 
-  done(SUBNAME[, VALUE]) => OLDVAL
+  $runner->done(SUBNAME[, VALUE]) => OLDVAL
     If VALUE is set, set a subroutine to be done/not done. Otherwise will
     return the current done status of SUBNAME.
 
     SUBNAME can also be a regex, which means all subroutines matching the
     regex. The last SUBNAME's current done status will be returned.
 
-  skip(SUBNAME)
+  $runner->skip(SUBNAME)
     Alias for done(SUBNAME, 1).
 
-  skip_all()
+  $runner->skip_all()
     Alias for skip(qr/.*/, 1).
 
-  repeat(SUBNAME)
+  $runner->repeat(SUBNAME)
     Alias for done(SUBNAME, 0).
 
-  repeat_all()
+  $runner->repeat_all()
     Alias for repeat(qr/.*/, 1).
 
-  branch_done(SUBNAME, VALUE)
+  $runner->branch_done(SUBNAME, VALUE)
     Just like done(), except that will set SUBNAME *and all its dependants*.
     Example: if a depends on b and b depends on c, then doing branch_done(c,
     1) will also set a & b as done.
 
     SUBNAME must be a string and not regex.
 
-  jump($subname)
+  $runner->jump($subname)
     Jump to another subname. Can be called in pre_sub() or inside subroutine
     or post_sub().
 
-  stash(NAME[, VALUE]) => OLDVAL
+  $runner->stash(NAME[, VALUE]) => OLDVAL
     Get/set stash data. This is a generic place to share data between
     subroutines being run.
 

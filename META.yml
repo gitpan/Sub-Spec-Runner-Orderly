@@ -23,4 +23,4 @@ requires:
 resources:
   homepage: http://search.cpan.org/dist/Sub-Spec-SetRunner/
   repository: http://github.com/sharyanto/perl-Sub-Spec-SetRunner
-version: 0.05
+version: 0.06
