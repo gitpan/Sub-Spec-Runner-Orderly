@@ -1,6 +1,6 @@
 package Sub::Spec::Runner::Orderly;
 BEGIN {
-  $Sub::Spec::Runner::Orderly::VERSION = '0.03';
+  $Sub::Spec::Runner::Orderly::VERSION = '0.05';
 }
 # ABSTRACT: Run a set of subs (with dependency ordering, order changing, etc)
 
@@ -478,7 +478,7 @@ Sub::Spec::Runner::Orderly - Run a set of subs (with dependency ordering, order 
 
 =head1 VERSION
 
-version 0.03
+version 0.05
 
 =head1 SYNOPSIS
 
@@ -498,7 +498,7 @@ In YourModule.pm:
  $SPEC{c} = { depends => {and=>[{sub=>'d'}, {sub=>'e'}]}, ... };
  sub c { my %args = @_; say "c"; [200, "OK"] }
 
- $SPEC{d} = { ... };
+ $SPEC{d} = { depends => {sub=>'e'}, ... };
  sub d { my %args = @_; say "d"; [200, "OK"] }
 
  $SPEC{e} = { ... };
@@ -506,18 +506,16 @@ In YourModule.pm:
 
 In main module:
 
- use Sub::Spec::SetRunner;
+ use Sub::Spec::Runner::Orderly;
 
- my $runner = Sub::Spec::SetRunner->new(load_modules=>0);
+ my $runner = Sub::Spec::Runner::Orderly->new(load_modules=>0);
  $runner->add('YourModule::a');
  $runner->run;
 
 Will output:
 
- a
-
- d
  e
+ d
  c
  b
  a
@@ -560,9 +558,9 @@ that argument, or if subroutine doesn't have an 'args' clause. Example:
  sub sub4 { ... }
 
  package main;
- use Sub::Spec::SetRunner;
+ use Sub::Spec::Runner::Orderly;
 
- my $runner = Sub::Spec::SetRunner->new(sub_args => {foo=>1, foo=>2});
+ my $runner = Sub::Spec::Runner::Orderly->new(sub_args => {foo=>1, foo=>2});
  $runner->add("Foo::sub$_") for (1 2 3 4);
  $runner->run;
 
