@@ -3,7 +3,7 @@ NAME
     ordering, order changing, etc)
 
 VERSION
-    version 0.06
+    version 0.07
 
 SYNOPSIS
     In YourModule.pm:
@@ -85,7 +85,7 @@ ATTRIBUTES
      package main;
      use Sub::Spec::Runner::Orderly;
 
-     my $runner = Sub::Spec::Runner::Orderly->new(sub_args => {foo=>1, foo=>2});
+     my $runner = Sub::Spec::Runner::Orderly->new(args => {foo=>1, foo=>2});
      $runner->add("Foo::sub$_") for (1 2 3 4);
      $runner->run;
 

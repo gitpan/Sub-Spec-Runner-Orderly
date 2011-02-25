@@ -1,6 +1,6 @@
 package Sub::Spec::Runner::Orderly;
 BEGIN {
-  $Sub::Spec::Runner::Orderly::VERSION = '0.06';
+  $Sub::Spec::Runner::Orderly::VERSION = '0.07';
 }
 # ABSTRACT: Run a set of subs (with dependency ordering, order changing, etc)
 
@@ -491,7 +491,7 @@ Sub::Spec::Runner::Orderly - Run a set of subs (with dependency ordering, order 
 
 =head1 VERSION
 
-version 0.06
+version 0.07
 
 =head1 SYNOPSIS
 
@@ -575,7 +575,7 @@ that argument, or if subroutine doesn't have an 'args' clause. Example:
  package main;
  use Sub::Spec::Runner::Orderly;
 
- my $runner = Sub::Spec::Runner::Orderly->new(sub_args => {foo=>1, foo=>2});
+ my $runner = Sub::Spec::Runner::Orderly->new(args => {foo=>1, foo=>2});
  $runner->add("Foo::sub$_") for (1 2 3 4);
  $runner->run;
 

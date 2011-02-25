@@ -15,6 +15,7 @@ meta-spec:
 name: Sub-Spec-Runner-Orderly
 requires:
   Algorithm::Dependency: 0
+  Capture::Tiny: 0
   Log::Any: 0
   Moo: 0
   Sub::Spec: 0.04
@@ -23,4 +24,4 @@ requires:
 resources:
   homepage: http://search.cpan.org/dist/Sub-Spec-SetRunner/
   repository: http://github.com/sharyanto/perl-Sub-Spec-SetRunner
-version: 0.06
+version: 0.07

@@ -1,5 +1,10 @@
 Revision history for Sub::Spec::Runner::Orderly
 
+0.07     2011-02-25
+
+         Add missing dep [CT].
+
+
 0.06     2011-02-24
 
          Add get_spec() to allow overriding behaviour for getting sub specs,
